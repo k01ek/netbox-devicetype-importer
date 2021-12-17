@@ -1,0 +1,21 @@
+{% extends 'generic/object_list.html' %}
+
+{% block extra_controls %}
+<div class="pull-right noprint">
+    {% if perms.netbox_devicetype_importer.add_metadevicetype %}
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" name="_load" formaction="{% url 'plugins:netbox_devicetype_importer:metadevicetype_load' %}" class="btn btn-success">
+            <span class="mdi mdi-download" aria-hidden="true"></span> Load
+        </button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
+{% block bulk_buttons %}
+{% if permissions.change %}
+<button type="submit" name="_edit" formaction="{% url 'plugins:netbox_devicetype_importer:metadevicetype_import' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-warning btn-sm">
+    <span class="mdi mdi-upload" aria-hidden="true"></span> Import Selected
+</button>
+{% endif %}
+{% endblock %}
