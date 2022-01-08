@@ -11,7 +11,7 @@ class NetboxdevicetypeimporterConfig(PluginConfig):
     author_email = 'mgk.kolek@gmail.com'
     required_settings = []
     min_version = '3.0.0'
-    max_version = '3.0.99'
+    max_version = '3.1.99'
     default_settings = {
         'repo_owner': 'netbox-community',
         'repo': 'devicetype-library',
