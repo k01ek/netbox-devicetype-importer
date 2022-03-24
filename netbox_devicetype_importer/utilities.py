@@ -121,15 +121,24 @@ class GitHubGQLAPI():
         result = {}
         response = self.session.post(url=self.url, json={'query': query})
         if response.ok:
-            result = response.json()
+            try:
+                result = response.json()
+            except requests.exceptions.JSONDecodeError:
+                raise GQLError('Cant parse message from GitHub. {}'.format(response.text))
             err = result.get('errors')
             if err:
                 # fix that
                 raise GQLError(message=err[0].get('message'))
             return result
         else:
-            err = response.json()
-            raise GQLError(err.get('message'))
+            try:
+                result = response.json()
+            except requests.exceptions.JSONDecodeError:
+                raise GQLError('Cant parse message from GitHub. {}'.format(response.text))
+            err = result.get('errors')
+            if err:
+                raise GQLError(message=err[0].get('message'))
+            raise GQLError(result.get('message'))
         return result
 
     def get_tree(self):
