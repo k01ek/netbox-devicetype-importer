@@ -13,7 +13,7 @@
 </div>
 {% endblock %}
 {% block bulk_buttons %}
-{% if permissions.change %}
+{% if perms.netbox_devicetype_importer.add_metadevicetype %}
 <button type="submit" name="_edit" formaction="{% url 'plugins:netbox_devicetype_importer:metadevicetype_import' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-warning btn-sm">
     <span class="mdi mdi-upload" aria-hidden="true"></span> Import Selected
 </button>
