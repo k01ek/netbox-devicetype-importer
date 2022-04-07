@@ -120,24 +120,17 @@ class GitHubGQLAPI():
     def get_query(self, query):
         result = {}
         response = self.session.post(url=self.url, json={'query': query})
+        try:
+            result = response.json()
+        except requests.exceptions.JSONDecodeError:
+            raise GQLError('Cant parse message from GitHub. {}'.format(response.text))
+        err = result.get('errors')
+        if err:
+            # fix that
+            raise GQLError(message=err[0].get('message'))
         if response.ok:
-            try:
-                result = response.json()
-            except requests.exceptions.JSONDecodeError:
-                raise GQLError('Cant parse message from GitHub. {}'.format(response.text))
-            err = result.get('errors')
-            if err:
-                # fix that
-                raise GQLError(message=err[0].get('message'))
             return result
         else:
-            try:
-                result = response.json()
-            except requests.exceptions.JSONDecodeError:
-                raise GQLError('Cant parse message from GitHub. {}'.format(response.text))
-            err = result.get('errors')
-            if err:
-                raise GQLError(message=err[0].get('message'))
             raise GQLError(result.get('message'))
         return result
 

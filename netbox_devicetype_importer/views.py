@@ -30,6 +30,7 @@ class MetaDeviceTypeListView(generic.ObjectListView):
     filterset = MetaDeviceTypeFilterSet
     filterset_form = MetaDeviceTypeFilterForm
     table = MetaDeviceTypeTable
+    actions = ()
     action_buttons = ()
     template_name = 'netbox_devicetype_importer/metadevicetype_list.html'
 
@@ -126,6 +127,7 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
         use_gql = plugin_settings.get('use_gql')
         repo = plugin_settings.get('repo')
         owner = plugin_settings.get('repo_owner')
+        version_minor = settings.VERSION.split('.')[1]
 
         if token and use_gql:
             gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
@@ -180,7 +182,11 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
                             for field_name, related_object_form in self.related_object_forms.items():
                                 related_obj_pks = []
                                 for i, rel_obj_data in enumerate(data.get(field_name, list())):
-                                    f = related_object_form(obj, rel_obj_data)
+                                    if version_minor == '2':
+                                        rel_obj_data.update({'device_type': obj})
+                                        f = related_object_form(rel_obj_data)
+                                    else:
+                                        f = related_object_form(obj, rel_obj_data)
                                     for subfield_name, field in f.fields.items():
                                         if subfield_name not in rel_obj_data and hasattr(field, 'initial'):
                                             f.data[subfield_name] = field.initial
