@@ -129,6 +129,17 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
         owner = plugin_settings.get('repo_owner')
         version_minor = settings.VERSION.split('.')[1]
 
+        # for 3.2 new devicetype components
+        if version_minor == '2':
+            self.related_object_forms.popitem()
+            self.related_object_forms.update(
+                {
+                    'module-bays': forms.ModuleBayTemplateImportForm,
+                    'device-bays': forms.DeviceBayTemplateImportForm,
+                    'inventory-items': forms.InventoryItemTemplateImportForm
+                }
+            )
+
         if token and use_gql:
             gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
         else:
