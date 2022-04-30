@@ -1,12 +1,14 @@
 {% extends 'generic/object_list.html' %}
 
+{% block title %}Meta Module Types{% endblock %}
+
 {% block extra_controls %}
     <div class="pull-right noprint">
         {% if perms.netbox_devicetype_importer.add_metadevicetype %}
             <form method="post">
                 {% csrf_token %}
                 <button type="submit" name="_load"
-                        formaction="{% url 'plugins:netbox_devicetype_importer:metadevicetype_load' %}?return_url={% url 'plugins:netbox_devicetype_importer:metadevicetype_list' %}"
+                        formaction="{% url 'plugins:netbox_devicetype_importer:metamoduletype_load' %}?return_url={% url 'plugins:netbox_devicetype_importer:metamoduletype_list' %}"
                         class="btn btn-success">
                     <span class="mdi mdi-download" aria-hidden="true"></span> Load
                 </button>
@@ -17,7 +19,8 @@
 {% block bulk_buttons %}
     {% if perms.netbox_devicetype_importer.add_metadevicetype %}
         <button type="submit" name="_edit" formaction="
-                {% url 'plugins:netbox_devicetype_importer:metadevicetype_import' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+
+                {% url 'plugins:netbox_devicetype_importer:metamoduletype_import' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
                 class="btn btn-warning btn-sm">
             <span class="mdi mdi-upload" aria-hidden="true"></span> Import Selected
         </button>
