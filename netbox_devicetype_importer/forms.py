@@ -5,20 +5,20 @@ from .models import MetaDeviceType
 
 
 class MetaDeviceTypeFilterForm(BootstrapMixin, forms.Form):
-	q = forms.CharField(
-		required=False,
-		label='Search'
-	)
+    q = forms.CharField(
+        required=False,
+        label='Search'
+    )
 
-	name = forms.CharField(
-		required=False,
-		label='Model'
-	)
-	vendor = forms.CharField(
-		required=False,
-		label='Vendor'
-	)
+    name = forms.CharField(
+        required=False,
+        label='Model'
+    )
+    vendor = forms.CharField(
+        required=False,
+        label='Vendor'
+    )
 
-	class Meta:
-		model = MetaDeviceType
-		fields = ['q', 'name', 'vendor']
+    class Meta:
+        model = MetaDeviceType
+        fields = ['q', 'name', 'vendor']
