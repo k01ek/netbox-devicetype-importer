@@ -7,6 +7,7 @@ except ImportError:
 
 from .models import MetaDeviceType
 
+
 class MetaTypeTable(BaseTable):
 	pk = ToggleColumn(visible=True)
 	id = None
