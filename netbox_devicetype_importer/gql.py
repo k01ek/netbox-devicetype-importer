@@ -98,9 +98,9 @@ class GitHubGqlAPI:
 
     def get_files(self, query_data):
         """
-		data = {'sha': 'vendor/model'}
-		result = {'sha': 'yaml_text'}
-		"""
+        data = {'sha': 'vendor/model'}
+        result = {'sha': 'yaml_text'}
+        """
         result = {}
         if not query_data:
             return result
