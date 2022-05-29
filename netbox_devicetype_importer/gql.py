@@ -14,60 +14,11 @@ class GQLError(Exception):
         super().__init__(message)
 
 
-class GitHubAPI():
-    def __init__(self, url=None, token=None, owner=None, repo=None):
-        self.session = requests.session()
-        self.session.headers.update({'Accept': 'application/vnd.github.v3+json'})
-        if token:
-            self.session.headers.update({'Authorization': f'token {token}'})
-        self.dt_dir = 'device-types'
-        self.url = f'https://api.github.com/repos/{owner}/{repo}/contents/'
-
-    def get_vendors(self):
-        result = {}
-        url = f'{self.url}{self.dt_dir}'
-        response = self.session.get(url)
-        if response.ok:
-            for vendor in response.json():
-                result[vendor['name']] = vendor['path']
-        return result
-
-    def get_models(self, vendor):
-        result = {}
-        url = f'{self.url}{self.dt_dir}/{vendor}'
-        response = self.session.get(url)
-        if response.ok:
-            for model in response.json():
-                result[model['name']] = {
-                    'path': model['path'],
-                    'sha': model['sha'],
-                    'download_url': model['download_url']
-                }
-        return result
-
-    def get_tree(self):
-        '''
-        {'cisco': {
-            '2950.yaml': {'path': '', 'sha': '', 'download_url': ''}
-            }
-        }
-        '''
-        result = {}
-        vendors = self.get_vendors()
-        for vendor in vendors:
-            models = self.get_models(vendor)
-            result[vendor] = models
-        return result
-
-    def get_files(self, data):
-        return {}
-
-
-class GitHubGQLAPI():
+class GitHubGqlAPI:
     tree_query = """
 {
   repository(owner: "{{ owner }}", name: "{{ repo }}") {
-    object(expression: "master:{{ path }}") {
+    object(expression: "{{ branch }}:{{ path }}") {
       ... on Tree {
         entries {
           name
@@ -98,7 +49,7 @@ class GitHubGQLAPI():
 {
     repository(owner: "{{ owner }}", name: "{{ repo }}") {
         {% for sha, path in data.items() %}
-        sha_{{ sha }}: object(expression: "master:{{ root_path }}/{{ path }}") {
+        sha_{{ sha }}: object(expression: "{{ branch }}:{{ root_path }}/{{ path }}") {
             ... on Blob {
                 text
             }
@@ -108,17 +59,17 @@ class GitHubGQLAPI():
 }
 """
 
-    def __init__(self, url='https://api.github.com/graphql', token=None, owner=None, repo=None):
+    def __init__(self, url='https://api.github.com/graphql', token=None, owner=None, repo=None, branch=None, path=None):
         self.session = requests.session()
         self.session.headers.update({'Authorization': f'token {token}'})
-        self.path = 'device-types'
+        self.path = path
         self.url = url
         self.token = token
         self.owner = owner
         self.repo = repo
+        self.branch = branch
 
     def get_query(self, query):
-        result = {}
         response = self.session.post(url=self.url, json={'query': query})
         try:
             result = response.json()
@@ -132,12 +83,11 @@ class GitHubGQLAPI():
             return result
         else:
             raise GQLError(result.get('message'))
-        return result
 
     def get_tree(self):
         result = {}
         template = Template(self.tree_query)
-        query = template.render(owner=self.owner, repo=self.repo, path=self.path)
+        query = template.render(owner=self.owner, repo=self.repo, branch=self.branch, path=self.path)
         data = self.get_query(query)
         if not data:
             return result
@@ -148,15 +98,15 @@ class GitHubGQLAPI():
         return result
 
     def get_files(self, query_data):
-        '''
-        data = {'sha': 'venodor/model'}
+        """
+        data = {'sha': 'vendor/model'}
         result = {'sha': 'yaml_text'}
-        '''
+        """
         result = {}
         if not query_data:
             return result
         template = Template(self.files_query)
-        query = template.render(owner=self.owner, repo=self.repo, data=query_data, root_path=self.path)
+        query = template.render(owner=self.owner, repo=self.repo, branch=self.branch, data=query_data, root_path=self.path)
         data = self.get_query(query)
         for k, v in data['data']['repository'].items():
             result[k.replace('sha_', '')] = v['text']

@@ -15,9 +15,10 @@ class NetboxdevicetypeimporterConfig(PluginConfig):
     default_settings = {
         'repo_owner': 'netbox-community',
         'repo': 'devicetype-library',
+        'branch': 'master',
         'github_token': '',
         'use_gql': True,
     }
 
 
-config = NetboxdevicetypeimporterConfig # noqa
+config = NetboxdevicetypeimporterConfig  # noqa

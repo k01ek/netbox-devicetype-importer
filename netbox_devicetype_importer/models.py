@@ -1,11 +1,13 @@
 from django.db import models
 
 from utilities.querysets import RestrictedQuerySet
+from .choices import TypeChoices
 
 
 class MetaDeviceType(models.Model):
     name = models.CharField(max_length=100)
     vendor = models.CharField(max_length=50)
+    type = models.CharField(max_length=20, choices=TypeChoices, default=TypeChoices.TYPE_DEVICE)
     sha = models.CharField(max_length=40)
     download_url = models.URLField(null=True, blank=True)
     is_new = models.BooleanField(default=True)
