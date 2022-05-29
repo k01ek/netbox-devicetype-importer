@@ -18,7 +18,7 @@ class GitHubGqlAPI:
     tree_query = """
 {
   repository(owner: "{{ owner }}", name: "{{ repo }}") {
-    object(expression: "master:{{ path }}") {
+    object(expression: "{{ branch }}:{{ path }}") {
       ... on Tree {
         entries {
           name
@@ -49,7 +49,7 @@ class GitHubGqlAPI:
 {
     repository(owner: "{{ owner }}", name: "{{ repo }}") {
         {% for sha, path in data.items() %}
-        sha_{{ sha }}: object(expression: "master:{{ root_path }}/{{ path }}") {
+        sha_{{ sha }}: object(expression: "{{ branch }}:{{ root_path }}/{{ path }}") {
             ... on Blob {
                 text
             }
@@ -59,7 +59,7 @@ class GitHubGqlAPI:
 }
 """
 
-    def __init__(self, url='https://api.github.com/graphql', token=None, owner=None, repo=None, path=None):
+    def __init__(self, url='https://api.github.com/graphql', token=None, owner=None, repo=None, branch=None, path=None):
         self.session = requests.session()
         self.session.headers.update({'Authorization': f'token {token}'})
         self.path = path
@@ -67,6 +67,7 @@ class GitHubGqlAPI:
         self.token = token
         self.owner = owner
         self.repo = repo
+        self.branch = branch
 
     def get_query(self, query):
         response = self.session.post(url=self.url, json={'query': query})
@@ -86,7 +87,7 @@ class GitHubGqlAPI:
     def get_tree(self):
         result = {}
         template = Template(self.tree_query)
-        query = template.render(owner=self.owner, repo=self.repo, path=self.path)
+        query = template.render(owner=self.owner, repo=self.repo, branch=self.branch, path=self.path)
         data = self.get_query(query)
         if not data:
             return result
@@ -105,7 +106,7 @@ class GitHubGqlAPI:
         if not query_data:
             return result
         template = Template(self.files_query)
-        query = template.render(owner=self.owner, repo=self.repo, data=query_data, root_path=self.path)
+        query = template.render(owner=self.owner, repo=self.repo, branch=self.branch, data=query_data, root_path=self.path)
         data = self.get_query(query)
         for k, v in data['data']['repository'].items():
             result[k.replace('sha_', '')] = v['text']

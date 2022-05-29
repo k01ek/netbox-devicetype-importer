@@ -61,8 +61,9 @@ class GenericTypeLoadView(ContentTypePermissionRequiredMixin, GetReturnURLMixin,
         plugin_settings = settings.PLUGINS_CONFIG.get('netbox_devicetype_importer', {})
         token = plugin_settings.get('github_token')
         repo = plugin_settings.get('repo')
+        branch = plugin_settings.get('branch')
         owner = plugin_settings.get('repo_owner')
-        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, path=self.path)
+        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, branch=branch, path=self.path)
         try:
             models = gh_api.get_tree()
         except GQLError as e:
@@ -145,6 +146,7 @@ class GenericTypeImportView(ContentTypePermissionRequiredMixin, GetReturnURLMixi
         plugin_settings = settings.PLUGINS_CONFIG.get('netbox_devicetype_importer', {})
         token = plugin_settings.get('github_token')
         repo = plugin_settings.get('repo')
+        branch = plugin_settings.get('branch')
         owner = plugin_settings.get('repo_owner')
         version_minor = settings.VERSION.split('.')[1]
 
@@ -159,7 +161,7 @@ class GenericTypeImportView(ContentTypePermissionRequiredMixin, GetReturnURLMixi
                 }
             )
 
-        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, path=self.type)
+        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, branch=branch, path=self.type)
 
         query_data = {}
         # check already imported mdt
