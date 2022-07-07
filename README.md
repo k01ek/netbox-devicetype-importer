@@ -22,7 +22,9 @@ PLUGINS = ['netbox_devicetype_importer']
 ```
 
 ## Configuration
-Put your GitHub personal access token to [NetBox plugins config](https://netbox.readthedocs.io/en/stable/configuration/optional-settings/#plugins_config)
+Put your GitHub personal access token to [NetBox plugins config](https://netbox.readthedocs.io/en/stable/configuration/optional-settings/#plugins_config).
+You need `public_repo` scope for the token.
+
 ```
 PLUGINS_CONFIG = {
     'netbox_devicetype_importer': {
