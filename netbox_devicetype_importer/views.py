@@ -210,7 +210,7 @@ class GenericTypeImportView(ContentTypePermissionRequiredMixin, GetReturnURLMixi
                             for field_name, related_object_form in self.related_object_forms.items():
                                 related_obj_pks = []
                                 for i, rel_obj_data in enumerate(data.get(field_name, list())):
-                                    if version_minor == '2':
+                                    if version_minor in ['2', '3']:
                                         rel_obj_data.update({self.related_object: obj})
                                         f = related_object_form(rel_obj_data)
                                     else:
