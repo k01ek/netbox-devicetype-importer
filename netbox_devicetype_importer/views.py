@@ -130,7 +130,7 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
         version_minor = settings.VERSION.split('.')[1]
 
         # for 3.2 new devicetype components
-        if version_minor == '2':
+        if int(version_minor) >= 2:
             self.related_object_forms.popitem()
             self.related_object_forms.update(
                 {
@@ -193,7 +193,7 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
                             for field_name, related_object_form in self.related_object_forms.items():
                                 related_obj_pks = []
                                 for i, rel_obj_data in enumerate(data.get(field_name, list())):
-                                    if version_minor == '2':
+                                    if int(version_minor) >= 2:
                                         rel_obj_data.update({'device_type': obj})
                                         f = related_object_form(rel_obj_data)
                                     else:
