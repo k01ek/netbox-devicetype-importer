@@ -1,41 +1,52 @@
 from collections import OrderedDict
 from urllib.parse import urlencode
 
-
 from django.conf import settings
-from django.db import transaction
 from django.contrib import messages
 from django.core.exceptions import ObjectDoesNotExist
-from django.views.generic import View
+from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, reverse
 from django.utils.text import slugify
+from django.views.generic import View
 
-from netbox.views import generic
-from dcim.models import Manufacturer, DeviceType
 from dcim import forms
-from utilities.views import ContentTypePermissionRequiredMixin
-from utilities.forms import ImportForm, restrict_form_fields
+from dcim.models import DeviceType, Manufacturer, ModuleType
+from netbox.views import generic
 from utilities.exceptions import AbortTransaction, PermissionsViolation
-
-from .models import MetaDeviceType
-from .tables import MetaDeviceTypeTable
+from utilities.forms import ImportForm, restrict_form_fields
+from utilities.views import ContentTypePermissionRequiredMixin, GetReturnURLMixin
+from .choices import TypeChoices
 from .filters import MetaDeviceTypeFilterSet
 from .forms import MetaDeviceTypeFilterForm
-from .utilities import GitHubAPI, GitHubGQLAPI, GQLError
+from .gql import GQLError, GitHubGqlAPI
+from .models import MetaDeviceType
+from .tables import MetaTypeTable
 
 
 class MetaDeviceTypeListView(generic.ObjectListView):
-    queryset = MetaDeviceType.objects.all()
+    queryset = MetaDeviceType.objects.filter(type=TypeChoices.TYPE_DEVICE)
     filterset = MetaDeviceTypeFilterSet
     filterset_form = MetaDeviceTypeFilterForm
-    table = MetaDeviceTypeTable
+    table = MetaTypeTable
     actions = ()
     action_buttons = ()
     template_name = 'netbox_devicetype_importer/metadevicetype_list.html'
 
 
-class MetaDeviceTypeLoadView(ContentTypePermissionRequiredMixin, View):
+class MetaModuleTypeListView(generic.ObjectListView):
+    queryset = MetaDeviceType.objects.filter(type=TypeChoices.TYPE_MODULE)
+    filterset = MetaDeviceTypeFilterSet
+    filterset_form = MetaDeviceTypeFilterForm
+    table = MetaTypeTable
+    actions = ()
+    action_buttons = ()
+    template_name = 'netbox_devicetype_importer/metamoduletype_list.html'
+
+
+class GenericTypeLoadView(ContentTypePermissionRequiredMixin, GetReturnURLMixin, View):
+    path = None
+
     def get_required_permission(self):
         return 'netbox_devicetype_importer.add_metadevicetype'
 
@@ -43,20 +54,16 @@ class MetaDeviceTypeLoadView(ContentTypePermissionRequiredMixin, View):
         loaded = 0
         created = 0
         updated = 0
-        # deleted = 0
+        return_url = self.get_return_url(request)
+
         if not request.user.has_perm('netbox_devicetype_importer.add_metadevicetype'):
             return HttpResponseForbidden()
         plugin_settings = settings.PLUGINS_CONFIG.get('netbox_devicetype_importer', {})
         token = plugin_settings.get('github_token')
-        use_gql = plugin_settings.get('use_gql')
         repo = plugin_settings.get('repo')
+        branch = plugin_settings.get('branch')
         owner = plugin_settings.get('repo_owner')
-        if token and use_gql:
-            gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
-        else:
-            # gql only
-            # gh_api = GitHubAPI(token=token, owner=owner, repo=repo)
-            gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
+        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, branch=branch, path=self.path)
         try:
             models = gh_api.get_tree()
         except GQLError as e:
@@ -67,7 +74,7 @@ class MetaDeviceTypeLoadView(ContentTypePermissionRequiredMixin, View):
             for model, model_data in models.items():
                 loaded += 1
                 try:
-                    metadevietype = MetaDeviceType.objects.get(vendor=vendor, name=model)
+                    metadevietype = MetaDeviceType.objects.get(vendor=vendor, name=model, type=self.path)
                     if metadevietype.sha != model_data['sha']:
                         metadevietype.is_new = True
                         # catch save exception
@@ -79,10 +86,11 @@ class MetaDeviceTypeLoadView(ContentTypePermissionRequiredMixin, View):
                     continue
                 except ObjectDoesNotExist:
                     # its new
-                    metadevietype = MetaDeviceType.objects.create(
+                    MetaDeviceType.objects.create(
                         vendor=vendor,
                         name=model,
-                        sha=model_data['sha']
+                        sha=model_data['sha'],
+                        type=self.path
                     )
                     created += 1
         messages.success(request, f'Loaded: {loaded}, Created: {created}, Updated: {updated}')
@@ -93,6 +101,10 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
     queryset = MetaDeviceType.objects.all()
     filterset = MetaDeviceTypeFilterSet
     filterset_form = MetaDeviceTypeFilterForm
+    type = None
+    type_model = None
+    model_form = None
+    related_object = None
 
     related_object_forms = OrderedDict((
         ('console-ports', forms.ConsolePortTemplateImportForm),
@@ -109,6 +121,8 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
         return 'netbox_devicetype_importer.add_metadevicetype'
 
     def post(self, request):
+        return_url = self.get_return_url(request)
+
         vendor_count = 0
         errored = 0
         imported_dt = []
@@ -124,8 +138,8 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
 
         plugin_settings = settings.PLUGINS_CONFIG.get('netbox_devicetype_importer', {})
         token = plugin_settings.get('github_token')
-        use_gql = plugin_settings.get('use_gql')
         repo = plugin_settings.get('repo')
+        branch = plugin_settings.get('branch')
         owner = plugin_settings.get('repo_owner')
         version_minor = settings.VERSION.split('.')[1]
 
@@ -140,45 +154,41 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
                 }
             )
 
-        if token and use_gql:
-            gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
-        else:
-            # GraphQL only
-            # gh_api = GitHubAPI(token=token, owner=owner, repo=repo)
-            gh_api = GitHubGQLAPI(token=token, owner=owner, repo=repo)
+        gh_api = GitHubGqlAPI(token=token, owner=owner, repo=repo, branch=branch, path=self.type)
 
         query_data = {}
         # check already imported mdt
-        already_imported_mdt = model.objects.filter(pk__in=pk_list, is_imported=True)
+        already_imported_mdt = model.objects.filter(pk__in=pk_list, is_imported=True, type=self.type)
         if already_imported_mdt.exists():
             for _mdt in already_imported_mdt:
-                if DeviceType.objects.filter(pk=_mdt.imported_dt).exists() is False:
+                if self.type_model.objects.filter(pk=_mdt.imported_dt).exists() is False:
                     _mdt.imported_dt = None
                     _mdt.save()
         vendors_for_cre = set(model.objects.filter(pk__in=pk_list).values_list('vendor', flat=True))
-        for vendor, name, sha in model.objects.filter(pk__in=pk_list, is_imported=False).values_list('vendor', 'name', 'sha'):
+        for vendor, name, sha in model.objects.filter(pk__in=pk_list, is_imported=False).values_list(
+            'vendor', 'name', 'sha'
+        ):
             query_data[sha] = f'{vendor}/{name}'
         if not query_data:
             messages.warning(request, message='Nothing to import')
-            return redirect('plugins:netbox_devicetype_importer:metadevicetype_list')
+            return redirect(return_url)
         try:
             dt_files = gh_api.get_files(query_data)
         except GQLError as e:
-            dt_files = {}
             messages.error(request, message=f'GraphQL API Error: {e.message}')
-            return redirect('plugins:netbox_devicetype_importer:metadevicetype_list')
+            return redirect(return_url)
         # cre manufacturers
         for vendor in vendors_for_cre:
-            manu, _ = Manufacturer.objects.get_or_create(name=vendor, slug=slugify(vendor))
-            if _:
+            manu, created = Manufacturer.objects.get_or_create(name=vendor, slug=slugify(vendor))
+            if created:
                 vendor_count += 1
 
         for sha, yaml_text in dt_files.items():
             form = ImportForm(data={'data': yaml_text, 'format': 'yaml'})
             if form.is_valid():
                 data = form.cleaned_data['data']
-                model_form = forms.DeviceTypeImportForm(data)
-                # is it nessescary?
+                model_form = self.model_form(data)
+                # is it necessary?
                 restrict_form_fields(model_form, request.user)
 
                 for field_name, field in model_form.fields.items():
@@ -231,7 +241,24 @@ class MetaDeviceTypeImportView(ContentTypePermissionRequiredMixin, View):
             if errored:
                 messages.error(request, f'Failed: {errored}')
             qparams = urlencode({'id': imported_dt}, doseq=True)
-            return redirect(reverse('dcim:devicetype_list') + '?' + qparams)
+            # Black magic to get the url path from the type
+            return redirect(reverse(f'dcim:{str(self.type).replace("-", "").rstrip("s")}_list') + '?' + qparams)
         else:
             messages.error(request, 'Can not import Device Types')
-            return redirect('plugins:netbox_devicetype_importer:metadevicetype_list')
+            return redirect(return_url)
+
+
+class MetaDeviceTypeImportView(GenericTypeImportView):
+    queryset = MetaDeviceType.objects.filter(type=TypeChoices.TYPE_DEVICE)
+    type = TypeChoices.TYPE_DEVICE
+    type_model = DeviceType
+    model_form = forms.DeviceTypeImportForm
+    related_object = 'device_type'
+
+
+class MetaModuleTypeImportView(GenericTypeImportView):
+    queryset = MetaDeviceType.objects.filter(type=TypeChoices.TYPE_MODULE)
+    type = TypeChoices.TYPE_MODULE
+    type_model = ModuleType
+    model_form = forms.ModuleTypeImportForm
+    related_object = 'module_type'
